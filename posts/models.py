@@ -7,8 +7,9 @@ class Post(models.Model):
     title = models.CharField(max_length=200)
     # db_index=True makes searching by slug much faster
     slug = models.SlugField(unique=True, db_index=True, blank=True)
-    content = CKEditor5Field('Text', config_name='default')    
+    content = models.TextField()  # Changed from CKEditor to TextField to support both
     excerpt = models.CharField(max_length=500, help_text="Short summary for SEO description")
+    is_html = models.BooleanField(default=False, help_text="Check if the content is in HTML format")
     cover_image = models.ImageField(upload_to='blog_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
