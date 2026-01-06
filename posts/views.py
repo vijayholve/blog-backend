@@ -19,7 +19,7 @@ class ImageUploadView(APIView):
         return Response({'url': file_url})
 # List all published posts
 class PostListView(generics.ListCreateAPIView):
-    queryset = Post.objects.filter(is_published=True).order_by('-created_at')
+    queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
 
     # Look up by slug instead of ID
@@ -27,7 +27,7 @@ class PostListView(generics.ListCreateAPIView):
 
 # Get a single post by slug
 class PostDetailView(generics.RetrieveAPIView):
-    queryset = Post.objects.filter(is_published=True)
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
     lookup_field = 'slug'
 
