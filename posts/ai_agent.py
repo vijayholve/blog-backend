@@ -25,6 +25,7 @@ def generate_blog_content(user_requirement):
         "8. EXCLUSIONS: Output ONLY the raw HTML code inside the CODE section. Do NOT use markdown code blocks (```html).\n\n"
         "9. dont use a image slider or carousel and dont give image as well in code \n\n"
         "RESPONSE FORMAT - YOU MUST FOLLOW THIS EXACTLY:\n"
+        "Text color must be dark so it can visible back of bg color white color "
         "TITLE: [Catchy Title]\n"
         "EXCERPT: [Short SEO Summary]\n"
         "CODE: [Full HTML/Tailwind content]"

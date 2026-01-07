@@ -1,0 +1,13 @@
+
+# generate all that does not need to be version controlled 
+__pycache__/
+*.pyc
+.env
+.DS_Store
+venv/
+*.sqlite3
+.venv/
+*/__pycache__
+*/migrations/__pycache__/
+
+./env
