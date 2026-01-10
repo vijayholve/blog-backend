@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 ]
 INSTALLED_APPS +=[
  'rest_framework',
+ 'rest_framework.authtoken',  # Add token authentication
     'corsheaders',
     'posts',
     'django_ckeditor_5'
@@ -51,6 +52,17 @@ CKEDITOR_5_CONFIGS = {
     'default': {
         'toolbar': ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'imageUpload', ],
     }
+}
+
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
 }
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', # Must be at the top

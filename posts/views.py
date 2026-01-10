@@ -1,10 +1,11 @@
 # posts/views.py
 from rest_framework import generics
-from .models import Post
-from .serializers import PostSerializer
+from .models import Post, Category, Tag
+from .serializers import PostSerializer, CategorySerializer, TagSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
 from django.core.files.storage import default_storage
 # posts/views.py
 from rest_framework import status
@@ -13,6 +14,8 @@ from .ai_agent import generate_blog_content
 
 # posts/views.py
 class AIAgentView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def post(self, request):
         requirement = request.data.get('requirement')
         if not requirement:
@@ -61,15 +64,42 @@ class ImageUploadView(APIView):
         return Response({'url': file_url})
 # List all published posts
 class PostListView(generics.ListCreateAPIView):
-    queryset = Post.objects.all().order_by('-created_at')
+    queryset = Post.objects.filter(status='published').order_by('-created_at')
     serializer_class = PostSerializer
-
-    # Look up by slug instead of ID
     lookup_field = 'slug'
+    
+    def perform_create(self, serializer):
+        # Automatically set the author to the logged-in user
+        if self.request.user.is_authenticated:
+            author = self.request.user.author_profile
+            serializer.save(author=author, status='published')
+        else:
+            serializer.save()
 
 # Get a single post by slug
 class PostDetailView(generics.RetrieveAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     lookup_field = 'slug'
+
+
+# Get user's own posts
+class MyPostsView(generics.ListAPIView):
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Post.objects.filter(author=self.request.user.author_profile).order_by('-created_at')
+
+
+# Category list view
+class CategoryListView(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+# Tag list view  
+class TagListView(generics.ListAPIView):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
 
