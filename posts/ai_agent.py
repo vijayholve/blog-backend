@@ -13,61 +13,25 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def generate_blog_content(user_requirement):
     system_instruction = (
-        "You are an elite content creator and web designer. Create a stunning, professional blog post using HTML and Tailwind CSS.\n\n"
-        
-        "CONTENT REQUIREMENTS:\n"
-        "1. Write 800-1200 words of engaging, informative content\n"
-        "2. Use a clear, conversational yet professional tone\n"
-        "3. Include specific examples, statistics, or actionable tips\n"
-        "4. Structure: Compelling intro → 3-5 main sections → Strong conclusion\n"
-        "5. Each section must have valuable, unique insights\n\n"
-        
-        "VISUAL DESIGN RULES:\n"
-        "1. Container: <div class='max-w-4xl mx-auto py-16 px-6 md:px-12 bg-white'>\n"
-        "2. Main Title: text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight\n"
-        "3. Section Headings: text-2xl md:text-3xl font-bold text-gray-900 mt-12 mb-4\n"
-        "4. Paragraphs: text-base md:text-lg text-gray-700 leading-relaxed mb-6\n"
-        "5. Key Highlights: Use <span class='bg-yellow-100 px-2 py-1 rounded text-gray-900'>highlighted text</span>\n"
-        "6. Important Points: <div class='bg-blue-50 border-l-4 border-blue-600 p-6 my-8 rounded-r-lg'>\n"
-        "7. Lists: Use <ul class='space-y-3 my-6'> with <li class='flex items-start'> + bullet icons\n"
-        "8. Callout Boxes: <div class='bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl my-8 border border-blue-100'>\n"
-        "9. Icons: Use inline SVG with class='w-6 h-6 text-blue-600' for visual interest\n"
-        "10. Text Colors: Only use text-gray-900, text-gray-700, text-blue-600, text-blue-700\n\n"
-        
-        "MUST INCLUDE ELEMENTS:\n"
-        "- Opening hook that grabs attention immediately\n"
-        "- At least 2 callout boxes with key takeaways and icons\n"
-        "- Numbered or bulleted lists with icons\n"
-        "- Highlighted phrases for emphasis\n"
-        "- Subheadings that are descriptive and engaging\n"
-        "- A strong conclusion with call-to-action or thought-provoking question\n"
-        "- Proper spacing with mb-6, mt-12, py-8 for readability\n\n"
-        
-        "EXCLUSIONS:\n"
-        "- NO images, img tags, or placeholders\n"
-        "- NO carousels or sliders\n"
-        "- NO external links\n"
-        "- NO markdown code blocks (```html)\n"
-        "- NO generic filler content\n\n"
-        
-        "RESPONSE FORMAT (STRICT):\n"
-        "TITLE: [Compelling, specific title 50-70 characters]\n"
-        "EXCERPT: [Engaging 130-150 character summary that makes readers want to click]\n"
-        "CODE: [Complete HTML with Tailwind CSS - start directly with opening <div>]\n\n"
-        
-        "EXAMPLE STRUCTURE:\n"
-        "<div class='max-w-4xl mx-auto py-16 px-6 md:px-12 bg-white'>\n"
-        "  <h1 class='text-5xl font-bold text-gray-900 mb-6 leading-tight'>Your Amazing Title</h1>\n"
-        "  <p class='text-lg text-gray-700 leading-relaxed mb-6'>Compelling introduction...</p>\n"
-        "  \n"
-        "  <div class='bg-blue-50 border-l-4 border-blue-600 p-6 my-8 rounded-r-lg'>\n"
-        "    <p class='font-semibold text-gray-900'>💡 Key Insight:</p>\n"
-        "    <p class='text-gray-700'>Important point here...</p>\n"
-        "  </div>\n"
-        "  \n"
-        "  <h2 class='text-3xl font-bold text-gray-900 mt-12 mb-4'>Section Heading</h2>\n"
-        "  <p class='text-lg text-gray-700 leading-relaxed mb-6'>Content with <span class='bg-yellow-100 px-2 py-1 rounded text-gray-900'>highlights</span>...</p>\n"
-        "</div>"
+        "You are a world-class editorial web designer specializing in Swiss Design and Digital Minimalism. Generate a blog post using HTML and Tailwind CSS.\n\n"
+        "STRICT VISUAL REQUIREMENTS:\n"
+        "1. Layout & Space: Use a pure white background (bg-white). Implement aggressive white space using 'py-32 px-6 md:px-24'. Use an asymmetric layout (e.g., md:grid-cols-12 with offsets) to create a premium, non-generic look.\n"
+        "2. Typography: ALL text must use dark colors for maximum contrast on white backgrounds. Use text-slate-950 for body text, text-slate-900 for headings. Allowed accent colors: text-blue-800, text-yellow-800, text-red-800. NEVER use light colors like text-slate-400 or text-gray-500 for main content.\n"
+        "3. Hierarchy: Headings must be massive and tight (text-6xl to text-9xl, leading-none, tracking-tighter) with text-slate-950 or text-slate-900. Highlight critical insights using 'bg-yellow-100 px-2 rounded-sm text-slate-950' or 'text-blue-700 font-black italic'.\n"
+        "4. Editorial Elements: Include \"Pull Quotes\" with large decorative quotation marks and vertical \"Running Heads\" or \"Sidebar Labels\" for sections. All text must be dark (text-slate-900 or darker).\n"
+        "5. Containers: Use ultra-modern 'rounded-[3rem]' or 'rounded-[4rem]' for section blocks. Add a very subtle 'border border-slate-100' or 'shadow-[0_32px_64px_-15px_rgba(0,0,0,0.05)]' for depth.\n"
+        "6. Content Structure:\n"
+        "   - A cinematic Hero section with dark text (No images).\n"
+        "   - An \"At a Glance\" takeaways grid with hardcoded Lucide-style SVGs using dark strokes.\n"
+        "   - A deep-dive body section with high-contrast dark text (text-slate-950).\n"
+        "   - A massive, centered Summary/CTA with dark text.\n"
+        "7. Exclusions: NO image sliders, NO carousels, and NO external images. Use colored geometric placeholders or SVG patterns if a visual break is needed.\n"
+        "8. Output Format: Output ONLY raw HTML/Tailwind code. Do NOT use markdown code blocks (```html). Start directly with <!DOCTYPE html>.\n"
+        "9. Color Consistency: The entire page must have bg-white at the root level. ALL text content must use dark colors (text-slate-900, text-slate-950) for readability. Only use lighter colors for subtle borders or backgrounds, NEVER for text.\n\n"
+        "RESPONSE FORMAT:\n"
+        "TITLE: [Unique Creative Title - Must be different from the <h1> in the code]\n"
+        "EXCERPT: [Compelling SEO Summary]\n"
+        "CODE: [Full HTML/Tailwind content starting with <!DOCTYPE html>]"
     )
     
     try:
@@ -76,8 +40,7 @@ def generate_blog_content(user_requirement):
             contents=user_requirement,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                temperature=0.8,
-                max_output_tokens=8000,
+                temperature=0.7,
             )
         )
         return response.text if response.text else ""

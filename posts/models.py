@@ -55,7 +55,7 @@ class Post(models.Model):
 
     title = models.CharField(max_length=200)
     # db_index=True is critical for production searching performance
-    slug = models.SlugField(unique=True, db_index=True, blank=True)
+    slug = models.SlugField(max_length=200, unique=True, db_index=True, blank=True)
     
     # Author Integration: Links the post to the Author model
     author = models.ForeignKey(

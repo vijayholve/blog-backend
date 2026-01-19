@@ -37,7 +37,6 @@ class AIAgentView(APIView):
             if "EXCERPT:" in raw_ai_response:
                 excerpt = raw_ai_response.split("EXCERPT:")[1].split("CODE:")[0].strip()
             
-            # Extract everything after "CODE:"
             if "CODE:" in raw_ai_response:
                 html_code = raw_ai_response.split("CODE:")[1].strip()
             
