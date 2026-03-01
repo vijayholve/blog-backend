@@ -10,7 +10,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = ['id', 'name', 'slug']
+        fields = ['id', 'name', 'slug', 'category']
 
 class AuthorSummarySerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)

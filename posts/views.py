@@ -214,8 +214,14 @@ class CategoryListView(generics.ListAPIView):
     serializer_class = CategorySerializer
 
 
-# Tag list view  
+# Tag list view — supports ?category=<id> filtering
 class TagListView(generics.ListAPIView):
-    queryset = Tag.objects.all()
     serializer_class = TagSerializer
+
+    def get_queryset(self):
+        qs = Tag.objects.all()
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+        return qs
 

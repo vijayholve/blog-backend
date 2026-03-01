@@ -38,6 +38,14 @@ class Category(models.Model):
 class Tag(models.Model):
     name = models.CharField(max_length=50)
     slug = models.SlugField(unique=True, blank=True)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='tags',
+        help_text="Category this tag belongs to"
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:
