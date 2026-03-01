@@ -84,6 +84,11 @@ class Post(models.Model):
         default=False, 
         help_text="Check if the content is in HTML format"
     )
+    graphical_content = models.TextField(
+        blank=True,
+        default='',
+        help_text="HTML code for the graphical/infographic explanation (if any)"
+    )
     
     # Media: Organized by date for production scalability
     cover_image = models.ImageField(
