@@ -11,6 +11,9 @@ from django.core.files.storage import default_storage
 from .ai_agent import (
     generate_blog_content,
     generate_graphical_content,
+    refine_text_snippet,
+    enhance_blog_design,
+    REFINE_COMMANDS,
     AIAgentRateLimitError,
     AIAgentError,
 )
@@ -224,4 +227,87 @@ class TagListView(generics.ListAPIView):
         if category_id:
             qs = qs.filter(category_id=category_id)
         return qs
+
+
+# AI Refine Text — accepts text_snippet + command, returns refined text
+class EnhanceDesignView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        html_content = request.data.get('html_content', '').strip()
+        if not html_content:
+            return Response({"error": "html_content is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            enhanced = enhance_blog_design(html_content)
+            return Response({
+                "enhanced_code": enhanced,
+            }, status=status.HTTP_200_OK)
+
+        except AIAgentRateLimitError as exc:
+            detail = str(exc)
+            retry_after = None
+            if "||retry_after=" in detail:
+                detail, retry_raw = detail.split("||retry_after=", 1)
+                try:
+                    retry_after = int(retry_raw)
+                except ValueError:
+                    retry_after = None
+            payload = {
+                "error": "AI service rate limited. Please wait and try again.",
+                "detail": detail,
+            }
+            if retry_after is not None:
+                payload["retry_after_seconds"] = retry_after
+            return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except AIAgentError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RefineTextView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Return available refine commands."""
+        commands = [
+            {"key": k, "label": k.replace("_", " ").title()}
+            for k in REFINE_COMMANDS
+        ]
+        return Response({"commands": commands}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        text_snippet = request.data.get('text_snippet', '').strip()
+        command = request.data.get('command', '').strip()
+
+        if not text_snippet:
+            return Response({"error": "text_snippet is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not command:
+            return Response({"error": "command is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refined = refine_text_snippet(text_snippet, command)
+            return Response({
+                "original": text_snippet,
+                "command": command,
+                "refined_text": refined.strip(),
+            }, status=status.HTTP_200_OK)
+
+        except AIAgentRateLimitError as exc:
+            detail = str(exc)
+            retry_after = None
+            if "||retry_after=" in detail:
+                detail, retry_raw = detail.split("||retry_after=", 1)
+                try:
+                    retry_after = int(retry_raw)
+                except ValueError:
+                    retry_after = None
+            payload = {
+                "error": "AI service rate limited. Please wait and try again.",
+                "detail": detail,
+            }
+            if retry_after is not None:
+                payload["retry_after_seconds"] = retry_after
+            return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except AIAgentError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

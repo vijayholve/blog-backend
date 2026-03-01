@@ -85,7 +85,7 @@ class Post(models.Model):
     # Content
     content = models.TextField() 
     excerpt = models.CharField(
-        max_length=500, 
+        max_length=2000, 
         help_text="Short summary for SEO description"
     )
     is_html = models.BooleanField(
