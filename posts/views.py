@@ -9,7 +9,11 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.files.storage import default_storage
 # posts/views.py
 from rest_framework import status
-from .ai_agent import generate_blog_content
+from .ai_agent import (
+    generate_blog_content,
+    AIAgentRateLimitError,
+    AIAgentError,
+)
 
 
 # posts/views.py
@@ -49,8 +53,16 @@ class AIAgentView(APIView):
                 "generated_code": html_code
             }, status=status.HTTP_200_OK)
             
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except AIAgentRateLimitError as exc:
+            return Response(
+                {
+                    "error": "AI service is currently rate limited. Please wait a moment and try again.",
+                    "detail": str(exc),
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        except AIAgentError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class ImageUploadView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 

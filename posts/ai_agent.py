@@ -2,9 +2,19 @@
 import os
 from google import genai
 from google.genai import types
+from google.api_core import exceptions as google_exceptions
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+class AIAgentRateLimitError(Exception):
+    """Raised when the upstream AI API responds with a rate limit (429)."""
+
+
+class AIAgentError(Exception):
+    """Raised for non-rate-limit AI errors."""
+
 
 # Initialize the client
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -36,7 +46,7 @@ def generate_blog_content(user_requirement):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash', 
+            model='gemini-2.0-flash',
             contents=user_requirement,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -44,9 +54,13 @@ def generate_blog_content(user_requirement):
             )
         )
         return response.text if response.text else ""
-    except Exception as e:
-        print(f"AI Error: {e}")
-        raise e
+    except google_exceptions.ResourceExhausted as exc:
+        # Surface a clear rate-limit signal to the caller
+        print(f"AI Rate Limit: {exc}")
+        raise AIAgentRateLimitError(str(exc))
+    except Exception as exc:
+        print(f"AI Error: {exc}")
+        raise AIAgentError(str(exc))
 if __name__ == "__main__":
     import sys
     test_requirement = sys.argv[1] if len(sys.argv) > 1 else "Create a space exploration blog"
