@@ -290,8 +290,11 @@ REFINE_COMMANDS = {
 }
 
 
-def enhance_blog_design(html_content):
+def enhance_blog_design(html_content, content_type="blog"):
     """Take full HTML content and return an enhanced version with improved visual design."""
+    if content_type == "graphical":
+        return enhance_graphical_design(html_content)
+
     system_instruction = (
         "You are an expert web designer. You will receive a complete HTML page. "
         "Your job is to ENHANCE its visual design while keeping ALL the text content exactly the same.\n\n"
@@ -332,6 +335,224 @@ def enhance_blog_design(html_content):
         match = re.search(r'(<!DOCTYPE html[\s\S]*</html>)', result, re.IGNORECASE)
         if match:
             return match.group(1).strip()
+        return result
+    except Exception as exc:
+        if _is_rate_limit_error(exc):
+            retry_after = _extract_retry_after_seconds(str(exc))
+            if retry_after is not None:
+                raise AIAgentRateLimitError(f"{exc}||retry_after={retry_after}")
+            raise AIAgentRateLimitError(str(exc))
+        raise AIAgentError(str(exc))
+
+
+def enhance_section_design(html_section, instructions=None, content_type="blog"):
+    """Take an HTML SECTION/FRAGMENT (not a full page) and return an enhanced version."""
+    if content_type == "graphical":
+        return enhance_graphical_section_design(html_section, instructions=instructions)
+
+    system_instruction = (
+        "You are a WORLD-CLASS web designer who transforms boring HTML into stunning, modern designs.\n\n"
+        "You will receive an HTML FRAGMENT (a section, div, or component). "
+        "Your job is to DRAMATICALLY ENHANCE its visual design. Make it look like a premium, "
+        "professional website — not just small tweaks, but a REAL visual upgrade.\n\n"
+        "MANDATORY ENHANCEMENTS (apply ALL that are relevant):\n"
+        "1. LAYOUT: Restructure with CSS Grid or Flexbox for better alignment. Add proper gaps.\n"
+        "2. SPACING: Generous padding (p-8, p-12), proper margins, breathing room between elements.\n"
+        "3. COLORS: Replace plain colors with gradients (bg-gradient-to-r, from-X-500 to-Y-600). "
+        "Use modern color combos like indigo→purple, blue→cyan, emerald→teal.\n"
+        "4. CARDS: Wrap items in card-like containers with bg-white, rounded-2xl, shadow-lg, p-6.\n"
+        "5. TYPOGRAPHY: Use text-4xl/5xl for headings with font-extrabold. "
+        "Use text-lg for body with text-gray-600 and leading-relaxed.\n"
+        "6. BORDERS & SHADOWS: Add shadow-xl, ring-1 ring-gray-100, rounded-2xl or rounded-3xl.\n"
+        "7. HOVER EFFECTS: Add hover:shadow-2xl, hover:scale-105, hover:-translate-y-1 with transition-all duration-300.\n"
+        "8. ICONS/BADGES: Add decorative elements like colored number badges, gradient accent bars, "
+        "small colored dots, or icon containers with rounded backgrounds.\n"
+        "9. BACKGROUNDS: Add subtle gradient backgrounds (bg-gradient-to-br from-gray-50 to-white) "
+        "or light pattern overlays.\n"
+        "10. DIVIDERS: Replace plain hrs with gradient lines or decorative separators.\n\n"
+        "COMMENT REQUIREMENT — THIS IS MANDATORY:\n"
+        "Add HTML comments (<!-- ... -->) ABOVE each changed element explaining WHAT you changed and WHY.\n"
+        "Format: <!-- ENHANCED: [what was changed] → [what it is now] | WHY: [reason] -->\n"
+        "Examples:\n"
+        "  <!-- ENHANCED: plain div → card with shadow + rounded corners | WHY: creates depth and visual separation -->\n"
+        "  <!-- ENHANCED: text-xl → text-4xl font-extrabold gradient text | WHY: stronger visual hierarchy -->\n"
+        "  <!-- ENHANCED: added hover:scale-105 transition | WHY: interactive feedback for users -->\n\n"
+        "CRITICAL RULES:\n"
+        "- Keep ALL text content EXACTLY the same — only change CSS classes, styles, and wrapper structure.\n"
+        "- The design MUST look noticeably different and better than the input.\n"
+        "- Return ONLY the enhanced HTML fragment. NOT a full page.\n"
+        "- Do NOT add <!DOCTYPE html>, <html>, <head>, <body> tags.\n"
+        "- Do NOT add <script> or <link> tags.\n"
+        "- Do NOT wrap in markdown code fences.\n"
+        "- Use Tailwind CSS classes only.\n"
+        "- The output must be the enhanced fragment with comments, nothing else."
+    )
+
+    try:
+        if not api_key:
+            raise AIAgentError("Missing GROQ_API_KEY in environment.")
+        response = client.chat.completions.create(
+            model=model_name,
+            temperature=0.7,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": (
+                    f"ENHANCE THIS HTML SECTION — make it look dramatically better:\n\n{html_section}"
+                    + (f"\n\nUSER INSTRUCTIONS (follow these closely):\n{instructions}" if instructions else "")
+                )},
+            ],
+        )
+        result = response.choices[0].message.content or ""
+        result = result.replace("```html", "").replace("```", "").strip()
+        # Strip any accidental full-page wrapper the AI may have added
+        result = re.sub(r'<!DOCTYPE[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'</?html[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'<head[\s\S]*?</head>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'</?body[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        return result
+    except Exception as exc:
+        if _is_rate_limit_error(exc):
+            retry_after = _extract_retry_after_seconds(str(exc))
+            if retry_after is not None:
+                raise AIAgentRateLimitError(f"{exc}||retry_after={retry_after}")
+            raise AIAgentRateLimitError(str(exc))
+        raise AIAgentError(str(exc))
+
+
+def enhance_graphical_design(html_content):
+    """Take full HTML graphical/infographic content and return an enhanced version."""
+    system_instruction = (
+        "You are a WORLD-CLASS data visualization and infographic designer.\n"
+        "You will receive a complete HTML page containing charts, graphs, tables, stat cards, "
+        "progress bars, and other data visualization elements.\n\n"
+        "Your job is to DRAMATICALLY ENHANCE its visual design to look like a premium analytics dashboard.\n\n"
+        "WHAT TO IMPROVE:\n"
+        "1. CHART COLORS: Replace plain fills with rich gradients. Use vibrant color palettes: "
+        "indigo→purple, blue→cyan, emerald→teal, amber→orange, rose→pink. "
+        "Apply gradients via SVG <linearGradient> or <radialGradient> defs.\n"
+        "2. SVG STYLING: Add drop-shadow filters, rounded stroke-linecap='round', smooth transitions. "
+        "Make bars/slices more visually distinct with better spacing.\n"
+        "3. CARD CONTAINERS: Wrap each chart/panel in premium cards with bg-white rounded-2xl shadow-xl "
+        "border border-slate-100 p-6. Add subtle hover:shadow-2xl transition-all duration-300.\n"
+        "4. STAT CARDS: Make numbers text-4xl font-black with gradient text (bg-gradient-to-r bg-clip-text text-transparent). "
+        "Add colored accent bars or dots. Use from-indigo-600 to-purple-600 style combos.\n"
+        "5. TABLE STYLING: Header bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-t-xl. "
+        "Alternating rows even:bg-slate-50. Best values: text-emerald-600 font-semibold. Hover: hover:bg-indigo-50.\n"
+        "6. PROGRESS BARS: Make taller (h-3 or h-4), use gradient fills from-indigo-500 to-purple-500, "
+        "add rounded-full, animate with transition-all. Add percentage labels.\n"
+        "7. DONUT/PIE CHARTS: Increase stroke width, add drop-shadow, use vibrant gradients per segment.\n"
+        "8. LAYOUT: Use grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 for cards. "
+        "Ensure proper max-w-6xl mx-auto px-6 py-12 for the page container.\n"
+        "9. TITLE BANNER: Make the header section a stunning gradient banner with "
+        "bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 col-span-full. "
+        "Title: text-4xl font-extrabold text-white.\n"
+        "10. BACKGROUNDS: Section bg should alternate between bg-white and bg-slate-50. "
+        "Add bg-gradient-to-br from-slate-50 to-white for subtle depth.\n"
+        "11. LEGENDS: Style legend items with small colored circles (w-3 h-3 rounded-full), "
+        "proper spacing gap-4, font-medium text-slate-600.\n"
+        "12. DIVIDERS: Add gradient dividers between sections: "
+        "h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full max-w-24 mx-auto.\n\n"
+        "SVG-SPECIFIC RULES (CRITICAL):\n"
+        "- NEVER change SVG path d='...' data, viewBox values, or data point coordinates.\n"
+        "- NEVER change text content, number values, or labels.\n"
+        "- You CAN change: fill colors, stroke colors, opacity, filters, gradients, stroke-width.\n"
+        "- You CAN add: <defs> with <linearGradient>, <filter> for shadows, <animate> for subtle effects.\n"
+        "- You CAN change: Tailwind classes on wrapper divs around SVGs.\n\n"
+        "OUTPUT RULES:\n"
+        "- Keep ALL text content, numbers, and data EXACTLY the same.\n"
+        "- Keep the Tailwind CDN script tag and Google Fonts link.\n"
+        "- Return ONLY the complete enhanced HTML starting with <!DOCTYPE html>.\n"
+        "- Do NOT wrap in markdown code fences.\n"
+        "- Do NOT add external images or JavaScript libraries.\n"
+        "- The result MUST look noticeably more polished and premium than the input."
+    )
+
+    try:
+        if not api_key:
+            raise AIAgentError("Missing GROQ_API_KEY in environment.")
+        response = client.chat.completions.create(
+            model=model_name,
+            temperature=0.6,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": f"ENHANCE this infographic/dashboard HTML to look stunning and premium:\n\n{html_content}"},
+            ],
+        )
+        result = response.choices[0].message.content or ""
+        result = result.replace("```html", "").replace("```", "").strip()
+        match = re.search(r'(<!DOCTYPE html[\s\S]*</html>)', result, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return result
+    except Exception as exc:
+        if _is_rate_limit_error(exc):
+            retry_after = _extract_retry_after_seconds(str(exc))
+            if retry_after is not None:
+                raise AIAgentRateLimitError(f"{exc}||retry_after={retry_after}")
+            raise AIAgentRateLimitError(str(exc))
+        raise AIAgentError(str(exc))
+
+
+def enhance_graphical_section_design(html_section, instructions=None):
+    """Take a graphical/infographic HTML FRAGMENT and return an enhanced version."""
+    system_instruction = (
+        "You are a WORLD-CLASS data visualization and infographic designer.\n\n"
+        "You will receive an HTML FRAGMENT from an infographic or dashboard — it could be a chart, "
+        "a stat card, a table, a progress bar section, or a visualization panel.\n\n"
+        "Your job is to DRAMATICALLY ENHANCE its visual design. Make it look like a premium "
+        "analytics dashboard — not small tweaks, but a REAL visual upgrade.\n\n"
+        "MANDATORY ENHANCEMENTS (apply ALL that are relevant):\n"
+        "1. CHART COLORS: Replace flat fills with rich SVG gradients (<linearGradient>). "
+        "Use indigo→purple, blue→cyan, emerald→teal, amber→orange, rose→pink.\n"
+        "2. SVG STYLING: Add drop-shadow filters via <filter>, use stroke-linecap='round', "
+        "increase stroke-width for visibility. Add spacing between chart elements.\n"
+        "3. CARD WRAPPERS: Wrap in bg-white rounded-2xl shadow-xl border border-slate-100/50 p-6. "
+        "Add hover:shadow-2xl transition-all duration-300.\n"
+        "4. STAT NUMBERS: text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 "
+        "bg-clip-text text-transparent. Add colored accent dots or bars.\n"
+        "5. TABLE ENHANCEMENTS: Gradient header, alternating row colors, hover:bg-indigo-50, "
+        "rounded corners on container, ring-1 ring-slate-100.\n"
+        "6. PROGRESS BARS: Taller (h-3/h-4), gradient fills, rounded-full, transition-all. "
+        "Add labels with font-semibold.\n"
+        "7. BACKGROUNDS: Add bg-gradient-to-br from-slate-50 to-white or subtle colored tints.\n"
+        "8. TYPOGRAPHY: Headings text-2xl font-bold text-slate-900. Labels text-sm text-slate-500 font-medium.\n"
+        "9. LEGENDS: Colored dots (w-3 h-3 rounded-full bg-COLOR-500) with gap-3 flex items.\n"
+        "10. SPACING: Generous p-6 to p-8, gap-4 to gap-6 between items.\n\n"
+        "SVG-SPECIFIC RULES (CRITICAL):\n"
+        "- NEVER change SVG path d='...' data, viewBox values, or coordinate numbers.\n"
+        "- NEVER change text content, labels, or numeric data.\n"
+        "- You CAN add/change: fill, stroke, opacity, <defs> with gradients/filters, stroke-width.\n"
+        "- You CAN change: Tailwind classes on wrapper elements around SVGs.\n\n"
+        "COMMENT REQUIREMENT — MANDATORY:\n"
+        "Add <!-- ENHANCED: [what] → [new] | WHY: [reason] --> comments above each change.\n\n"
+        "OUTPUT RULES:\n"
+        "- Keep ALL text, numbers, and data EXACTLY the same.\n"
+        "- Return ONLY the enhanced HTML fragment. NOT a full page.\n"
+        "- Do NOT add <!DOCTYPE html>, <html>, <head>, <body>, <script>, or <link> tags.\n"
+        "- Do NOT wrap in markdown code fences.\n"
+        "- Use Tailwind CSS classes. The design MUST look noticeably better."
+    )
+
+    try:
+        if not api_key:
+            raise AIAgentError("Missing GROQ_API_KEY in environment.")
+        response = client.chat.completions.create(
+            model=model_name,
+            temperature=0.7,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": (
+                    f"ENHANCE this infographic/dashboard section — make it look stunning:\n\n{html_section}"
+                    + (f"\n\nUSER INSTRUCTIONS (follow these closely):\n{instructions}" if instructions else "")
+                )},
+            ],
+        )
+        result = response.choices[0].message.content or ""
+        result = result.replace("```html", "").replace("```", "").strip()
+        result = re.sub(r'<!DOCTYPE[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'</?html[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'<head[\s\S]*?</head>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'</?body[^>]*>', '', result, flags=re.IGNORECASE).strip()
         return result
     except Exception as exc:
         if _is_rate_limit_error(exc):

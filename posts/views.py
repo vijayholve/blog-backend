@@ -13,6 +13,7 @@ from .ai_agent import (
     generate_graphical_content,
     refine_text_snippet,
     enhance_blog_design,
+    enhance_section_design,
     REFINE_COMMANDS,
     AIAgentRateLimitError,
     AIAgentError,
@@ -238,8 +239,47 @@ class EnhanceDesignView(APIView):
         if not html_content:
             return Response({"error": "html_content is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        content_type = request.data.get('content_type', 'blog').strip()
+
         try:
-            enhanced = enhance_blog_design(html_content)
+            enhanced = enhance_blog_design(html_content, content_type=content_type)
+            return Response({
+                "enhanced_code": enhanced,
+            }, status=status.HTTP_200_OK)
+
+        except AIAgentRateLimitError as exc:
+            detail = str(exc)
+            retry_after = None
+            if "||retry_after=" in detail:
+                detail, retry_raw = detail.split("||retry_after=", 1)
+                try:
+                    retry_after = int(retry_raw)
+                except ValueError:
+                    retry_after = None
+            payload = {
+                "error": "AI service rate limited. Please wait and try again.",
+                "detail": detail,
+            }
+            if retry_after is not None:
+                payload["retry_after_seconds"] = retry_after
+            return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except AIAgentError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class EnhanceSectionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        html_section = request.data.get('html_content', '').strip()
+        if not html_section:
+            return Response({"error": "html_content is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instructions = request.data.get('instructions', '').strip() or None
+        content_type = request.data.get('content_type', 'blog').strip()
+
+        try:
+            enhanced = enhance_section_design(html_section, instructions=instructions, content_type=content_type)
             return Response({
                 "enhanced_code": enhanced,
             }, status=status.HTTP_200_OK)

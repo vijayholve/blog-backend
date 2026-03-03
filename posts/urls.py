@@ -2,7 +2,7 @@
 from django.urls import path
 from .views import (
     PostListView, PostDetailView, ImageUploadView, AIAgentView,
-    GraphicalAIView, RefineTextView, EnhanceDesignView, MyPostsView, CategoryListView, TagListView
+    GraphicalAIView, RefineTextView, EnhanceDesignView, EnhanceSectionView, MyPostsView, CategoryListView, TagListView
 )
 from .auth_views import (
     UserRegistrationView,
@@ -23,6 +23,7 @@ urlpatterns = [
     path('generate-graphical-content/', GraphicalAIView.as_view(), name='generate-graphical-content'),
     path('refine-text/', RefineTextView.as_view(), name='refine-text'),
     path('enhance-design/', EnhanceDesignView.as_view(), name='enhance-design'),
+    path('enhance-section/', EnhanceSectionView.as_view(), name='enhance-section'),
     
     # Category and Tag endpoints
     path('categories/', CategoryListView.as_view(), name='category-list'),
