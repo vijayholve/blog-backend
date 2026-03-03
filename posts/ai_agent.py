@@ -46,14 +46,74 @@ client = OpenAI(
 )
 
 
+# ── Post-processing sanitizer ──────────────────────────────────────────────
+def _sanitize_blog_html(html):
+    """Force-fix common bad patterns the LLM produces despite instructions."""
+    if not html:
+        return html
+
+    # 1. Remove <style>...</style> blocks entirely
+    html = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', html, flags=re.IGNORECASE)
+
+    # 2. Fix body class — ensure bg-white, remove bg-gray-*
+    html = re.sub(
+        r"<body[^>]*class=['\"]([^'\"]*)['\"]" ,
+        lambda m: m.group(0).replace(m.group(1), re.sub(r'bg-gray-\S+', 'bg-white', m.group(1)))
+        if 'bg-gray' in m.group(1)
+        else m.group(0),
+        html,
+    )
+
+    # 3. Remove h-screen from ALL elements
+    html = re.sub(r'\bh-screen\b', '', html)
+
+    # 4. Remove hover:scale-* and scale-* transforms
+    html = re.sub(r'\bhover:scale-\S+', '', html)
+    html = re.sub(r'\bscale-\S+', '', html)
+    # Also remove inline transform: scale(...) from style attrs
+    html = re.sub(r'transform:\s*scale\([^)]*\);?', '', html)
+
+    # 5. Replace the generic empty circle SVG that LLMs love to reuse
+    generic_circle = r"d=['\"]M12 2C6\.5 2 2 6\.5 2 12s4\.5 10 10 10 10-4\.5 10-10S17\.5 2 12 2[^'\"]*['\"]"
+    unique_icons = [
+        "d='M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'",
+        "d='M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z'",
+        "d='M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'",
+        "d='M13 10V3L4 14h7v7l9-11h-7z'",
+        "d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z'",
+        "d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'",
+        "d='M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'",
+        "d='M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'",
+    ]
+    icon_idx = [0]
+
+    def _replace_icon(m):
+        replacement = unique_icons[icon_idx[0] % len(unique_icons)]
+        icon_idx[0] += 1
+        return replacement
+
+    html = re.sub(generic_circle, _replace_icon, html)
+
+    # 6. Clean up stray double-spaces from class removals
+    html = re.sub(r"  +", " ", html)
+
+    return html
+
 
 def generate_blog_content(user_requirement):
     system_instruction = (
-        "You are an award-winning web designer who creates visually stunning, magazine-quality blog posts "
-        "using HTML with the Tailwind CSS CDN. Your designs look like premium editorial websites.\n\n"
+        "You are a premium web designer. Create a visually stunning blog post as a COMPLETE standalone HTML page "
+        "using Tailwind CSS CDN + Google Fonts. The design should look like a high-end editorial magazine.\n\n"
 
-        "═══════ MANDATORY STRUCTURE ═══════\n"
-        "Produce a COMPLETE standalone HTML page with this exact skeleton:\n"
+        "CRITICAL RULES (violating ANY = failure):\n"
+        "1. Body MUST be: <body class='bg-white font-[Inter]'>. No bg-gray anything.\n"
+        "2. NO <style> blocks. Tailwind utility classes ONLY.\n"
+        "3. NO h-screen on ANY element. Sections sized by content + padding only.\n"
+        "4. NO hover:scale-105 or transform scale. Use hover:shadow-xl instead.\n"
+        "5. NO identical SVG icons. Every card icon must be a DIFFERENT recognizable shape.\n"
+        "6. NO external images or JavaScript (except Tailwind CDN).\n\n"
+
+        "HTML SKELETON (use exactly):\n"
         "<!DOCTYPE html>\n"
         "<html lang='en'>\n"
         "<head>\n"
@@ -61,77 +121,42 @@ def generate_blog_content(user_requirement):
         "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
         "  <script src='https://cdn.tailwindcss.com'></script>\n"
         "  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap' rel='stylesheet'>\n"
-        "  <style>... custom styles here ...</style>\n"
         "</head>\n"
         "<body class='bg-white font-[Inter]'>\n"
-        "  ... content ...\n"
-        "</body>\n"
-        "</html>\n\n"
+        "</body></html>\n\n"
 
-        "═══════ DESIGN RULES (FOLLOW EXACTLY) ═══════\n\n"
+        "MANDATORY SECTIONS (include ALL in this order):\n\n"
 
-        "1. HERO SECTION (must be visually striking):\n"
-        "   - Full-width section with a bold gradient background, e.g. bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900.\n"
-        "   - Title: Use font-family Playfair Display, text-5xl md:text-7xl font-black text-white leading-tight.\n"
-        "   - Add a short tagline below in text-lg text-indigo-200 font-light.\n"
-        "   - Generous padding: py-24 md:py-32 px-6 md:px-16 lg:px-32.\n"
-        "   - NO decorative blobs, circles, or absolute-positioned background shapes. Keep the hero clean.\n\n"
+        "1. HERO: <section class='bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 py-24 md:py-32 px-6 text-center'>\n"
+        "   Title: font-['Playfair_Display'] text-5xl md:text-7xl font-black text-white. Subtitle: text-indigo-200.\n\n"
 
-        "2. TYPOGRAPHY (all text must be READABLE):\n"
-        "   - Body text: text-slate-700 text-lg leading-relaxed (NEVER lighter than text-slate-600).\n"
-        "   - Section headings: text-3xl md:text-4xl font-extrabold text-slate-900.\n"
-        "   - Sub-headings: text-xl font-bold text-slate-800.\n"
-        "   - Accent text: text-indigo-600 font-semibold or text-emerald-600 font-semibold.\n"
-        "   - NEVER use text-slate-400, text-gray-400, or any light color for readable content.\n\n"
+        "2. INTRO: max-w-3xl mx-auto py-16 px-6. Heading text-3xl font-extrabold + 1-2 paragraphs text-slate-700 text-lg.\n\n"
 
-        "3. CONTENT SECTIONS (use variety, not just text blocks):\n"
-        "   - 'Key Highlights' grid: 2-3 column grid of cards, each with a colored icon area, bold title, short description.\n"
-        "     Card style: bg-white rounded-2xl shadow-lg hover:shadow-xl transition p-6 border border-slate-100.\n"
-        "     Icon area: w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4 with an inline SVG icon (stroke-indigo-600).\n"
-        "   - 'Pull Quote' blocks: bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 px-8 py-6 rounded-r-2xl my-8.\n"
-        "     Quote text: text-xl italic text-slate-800 font-medium.\n"
-        "   - Numbered list sections: Use styled ordered lists with custom counter badges.\n"
-        "     Each item: flex gap-4, number in w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0.\n"
-        "   - Stat/metric callouts: inline flex cards with large numbers (text-4xl font-black text-indigo-600) and small labels.\n"
-        "   - Paragraph blocks: max-w-3xl mx-auto text-slate-700 text-lg leading-relaxed.\n\n"
+        "3. CARD GRID (3+ cards): <div class='grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto'>.\n"
+        "   Each card: bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-slate-100.\n"
+        "   Each card MUST have a DIFFERENT SVG icon (lightbulb, star, shield, bolt, heart, book, chart, globe — NOT circles).\n"
+        "   Use viewBox='0 0 24 24' stroke='currentColor' fill='none' stroke-width='2'.\n\n"
 
-        "4. COLOR PALETTE (choose ONE scheme per post, be consistent):\n"
-        "   Option A — Indigo/Purple: gradients from-indigo-600 to-purple-600, accents indigo-100/500/600.\n"
-        "   Option B — Emerald/Teal: gradients from-emerald-600 to-teal-600, accents emerald-100/500/600.\n"
-        "   Option C — Rose/Orange: gradients from-rose-600 to-orange-500, accents rose-100/500/600.\n"
-        "   Option D — Blue/Cyan: gradients from-blue-600 to-cyan-500, accents blue-100/500/600.\n"
-        "   The hero uses the dark version (e.g. from-indigo-900 via-purple-900 to-slate-900). Cards and accents use lighter variants.\n\n"
+        "4. PULL QUOTE: bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 px-8 py-6 rounded-r-2xl max-w-3xl mx-auto.\n\n"
 
-        "5. SPACING & LAYOUT:\n"
-        "   - Every major section: py-16 md:py-24 px-6 md:px-16 lg:px-24.\n"
-        "   - Alternate section backgrounds: bg-white, then bg-slate-50 or bg-indigo-50/30, then bg-white.\n"
-        "   - Content width: max-w-6xl mx-auto for grids, max-w-3xl mx-auto for text paragraphs.\n"
-        "   - Gaps: gap-6 md:gap-8 between grid items.\n\n"
+        "5. NUMBERED STEPS (3-5 items): Each with a w-10 h-10 rounded-full bg-indigo-600 text-white number badge + title + description.\n\n"
 
-        "6. VISUAL SEPARATORS between sections:\n"
-        "   Use decorative dividers like: <div class='max-w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mx-auto my-12'></div>\n\n"
+        "6. STAT ROW: flex flex-wrap justify-center gap-12 py-8. Each stat: text-4xl font-black text-indigo-600 number + text-sm label.\n\n"
 
-        "7. FOOTER / CTA SECTION:\n"
-        "   - Gradient background matching the hero, rounded-3xl, centered text.\n"
-        "   - Big heading: text-3xl md:text-4xl font-extrabold text-white.\n"
-        "   - Subtitle: text-lg text-indigo-200.\n"
-        "   - CTA button: px-8 py-4 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:shadow-xl transition.\n\n"
+        "7. DETAIL SECTION: Another text section or second card grid.\n\n"
 
-        "8. ABSOLUTE EXCLUSIONS:\n"
-        "   - NO external images, NO <img> tags (use SVG icons or colored shapes instead).\n"
-        "   - NO JavaScript (except Tailwind CDN script).\n"
-        "   - NO markdown code fences.\n"
-        "   - NO carousels, sliders, or animations requiring JS.\n\n"
+        "8. CTA: <section class='max-w-5xl mx-auto bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-3xl text-center py-16 px-8 mb-12'>\n"
+        "   White heading + subtitle + <button class='px-8 py-4 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:shadow-xl transition-shadow'>.\n\n"
 
-        "9. INLINE SVG ICONS (use these instead of images):\n"
-        "   When a visual icon is needed, use simple inline SVG with: class='w-6 h-6' stroke='currentColor' fill='none' stroke-width='2'.\n"
-        "   Common ones: checkmark circle, lightbulb, star, arrow-right, chart-bar, globe, heart, shield-check.\n\n"
+        "SPACING: Alternate section backgrounds bg-white / bg-slate-50. Each section: py-16 md:py-24 px-6.\n"
+        "TEXT: Body text-slate-700 (never lighter). Headings text-slate-900.\n"
+        "DIVIDERS: <div class='max-w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mx-auto my-4'></div> between sections.\n\n"
 
-        "═══════ OUTPUT FORMAT ═══════\n"
-        "TITLE: [A unique creative title - different from the <h1> in the code]\n"
-        "EXCERPT: [2-3 sentence compelling SEO summary]\n"
+        "OUTPUT FORMAT:\n"
+        "TITLE: [Creative title different from the hero H1]\n"
+        "EXCERPT: [2-3 sentence SEO summary]\n"
         "CODE: [Complete HTML starting with <!DOCTYPE html>]\n\n"
-        "Start your response with TITLE: immediately. Do NOT wrap the code in ```html blocks."
+        "Start with TITLE: immediately. No markdown code fences."
     )
     
     try:
@@ -139,13 +164,21 @@ def generate_blog_content(user_requirement):
             raise AIAgentError("Missing GROQ_API_KEY in environment. Get one free at https://console.groq.com")
         response = client.chat.completions.create(
             model=model_name,
-            temperature=0.7,
+            temperature=0.5,
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_requirement},
             ],
         )
-        return response.choices[0].message.content or ""
+        raw = response.choices[0].message.content or ""
+        # Post-process: extract HTML then sanitize
+        html_match = re.search(r'CODE:\s*(.+)', raw, re.DOTALL)
+        if html_match:
+            prefix = raw[:html_match.start()]
+            cleaned_html = _sanitize_blog_html(html_match.group(1).strip())
+            return prefix + "CODE: " + cleaned_html
+        # Fallback: sanitize the whole thing if no CODE: marker
+        return _sanitize_blog_html(raw)
     except Exception as exc:
         if _is_rate_limit_error(exc):
             print(f"AI Rate Limit: {exc}")
@@ -155,13 +188,23 @@ def generate_blog_content(user_requirement):
             raise AIAgentRateLimitError(str(exc))
         print(f"AI Error: {exc}")
         raise AIAgentError(str(exc))
+
+
 def generate_graphical_content(user_requirement):
     """Generate an interactive graphical/infographic HTML explanation using AI."""
     system_instruction = (
-        "You are an elite infographic designer who creates stunning data visualizations "
-        "using HTML, Tailwind CSS CDN, and inline SVG. Your output looks like premium Dribbble-quality dashboards.\n\n"
+        "You are an elite infographic designer. Create a Dribbble-quality data dashboard using HTML + Tailwind CSS CDN + inline SVG.\n\n"
 
-        "═══════ MANDATORY HTML SKELETON ═══════\n"
+        "CRITICAL RULES (violating ANY = failure):\n"
+        "1. Body MUST be: <body class='bg-white font-[Inter]'>. No bg-gray.\n"
+        "2. NO <style> blocks. Tailwind utility classes ONLY.\n"
+        "3. NO h-screen. Sections sized by content only.\n"
+        "4. NO hover:scale or transform scale. Use hover:shadow-xl.\n"
+        "5. NO external images, chart.js, or JavaScript libraries.\n"
+        "6. ALL data and charts MUST be about the USER'S TOPIC. Do NOT make up unrelated topics.\n"
+        "7. Do NOT put HTML <div> elements inside <svg> tags. Legends go OUTSIDE the SVG.\n\n"
+
+        "HTML SKELETON:\n"
         "<!DOCTYPE html>\n"
         "<html lang='en'>\n"
         "<head>\n"
@@ -171,74 +214,33 @@ def generate_graphical_content(user_requirement):
         "  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap' rel='stylesheet'>\n"
         "</head>\n"
         "<body class='bg-white font-[Inter]'>\n"
-        "  ... infographic content ...\n"
-        "</body>\n"
-        "</html>\n\n"
+        "</body></html>\n\n"
 
-        "═══════ DESIGN RULES ═══════\n\n"
+        "LAYOUT: max-w-6xl mx-auto px-6 md:px-12 py-12. Grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6.\n\n"
 
-        "1. OVERALL LAYOUT:\n"
-        "   - Outer container: max-w-6xl mx-auto px-6 md:px-12 py-12.\n"
-        "   - Use CSS Grid: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6.\n"
-        "   - Dashboard-style: multiple distinct visual cards arranged in a grid.\n\n"
+        "MANDATORY PANELS (include ALL):\n\n"
 
-        "2. TITLE HEADER:\n"
-        "   - Full-width gradient banner at top: bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 mb-8.\n"
-        "   - Title: text-3xl md:text-4xl font-extrabold text-white.\n"
-        "   - Subtitle: text-indigo-200 text-lg mt-2.\n\n"
+        "1. TITLE BANNER (full-width): bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 md:p-12 col-span-full.\n"
+        "   Title: text-3xl md:text-4xl font-extrabold text-white. Subtitle: text-indigo-200.\n\n"
 
-        "3. CARD DESIGN (every panel must look like this):\n"
-        "   - bg-white rounded-2xl shadow-lg border border-slate-100 p-6.\n"
-        "   - Card title: text-lg font-bold text-slate-900 mb-4, with a small colored dot or icon before it.\n"
-        "   - Hover effect: hover:shadow-xl transition-shadow.\n\n"
+        "2. STAT CARDS (3-4 in a row): text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent + text-sm label.\n\n"
 
-        "4. SVG CHARTS (the core visuals):\n"
-        "   a) BAR CHARTS: Wrap in a container div with h-48 or h-64. SVG must have explicit width, height, viewBox.\n"
-        "      Bars: Use <rect> with rx='6' for rounded tops, vibrant fill colors (#6366f1, #8b5cf6, #10b981, #f59e0b, #ef4444).\n"
-        "      Labels: <text> elements with fill='#334155' font-size='12' text-anchor='middle'.\n"
-        "      Axis lines: <line> with stroke='#e2e8f0' stroke-width='1'.\n"
-        "   b) PIE/DONUT CHARTS: Use <circle> with stroke-dasharray and stroke-dashoffset.\n"
-        "      Center label for donut: <text> with fill='#1e293b' font-size='24' font-weight='bold' text-anchor='middle'.\n"
-        "      Legend below: flex flex-wrap gap-3, each item has a colored dot (w-3 h-3 rounded-full) + label.\n"
-        "   c) LINE CHARTS: <polyline> with fill='none' stroke='#6366f1' stroke-width='2.5' and <circle> markers.\n"
-        "   d) PROGRESS BARS (CSS-based): bg-slate-100 rounded-full h-3, inner div with bg-gradient-to-r rounded-full + width %.\n\n"
+        "3. BAR CHART: <svg viewBox='0 0 400 200'> with <rect> bars (different heights/colors), axis <line>, and <text> labels.\n\n"
 
-        "5. STAT CARDS:\n"
-        "   - Big number: text-4xl font-black + a gradient text effect using bg-gradient-to-r bg-clip-text text-transparent.\n"
-        "   - Label below: text-sm text-slate-500 font-medium.\n"
-        "   - Optional trend arrow: inline SVG arrow up/down with green/red color.\n\n"
+        "4. DONUT CHART: <svg width='180' height='180' viewBox='0 0 180 180'> with stroke-dasharray circles. Legend OUTSIDE svg as HTML <span> elements.\n\n"
 
-        "6. COMPARISON TABLES:\n"
-        "   - Striped rows: even:bg-slate-50. Header: bg-slate-900 text-white rounded-t-xl.\n"
-        "   - Cells: px-4 py-3 text-sm text-slate-700.\n"
-        "   - Highlight best values with text-emerald-600 font-bold.\n\n"
+        "5. PROGRESS BARS: CSS-based. <div class='bg-slate-100 rounded-full h-3'><div class='bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full' style='width: 85%'></div></div>.\n\n"
 
-        "7. TIMELINES / FLOWCHARTS:\n"
-        "   - Vertical line: absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-200.\n"
-        "   - Nodes: relative pl-16, each with an absolute-positioned circle (w-4 h-4 rounded-full bg-indigo-600 left-4.5).\n"
-        "   - Content: bg-white rounded-xl p-4 shadow-sm border border-slate-100.\n\n"
+        "6. TABLE: <thead class='bg-slate-900 text-white'> with rounded corners. Rows: even:bg-slate-50. Best values: text-emerald-600 font-bold.\n\n"
 
-        "8. COLOR PALETTE:\n"
-        "   Primary: indigo-500/600. Secondary: purple-500, emerald-500, amber-500, rose-500.\n"
-        "   Backgrounds: bg-white for cards, bg-slate-50 for page if needed.\n"
-        "   Text: text-slate-900 for headings, text-slate-600 for descriptions. NEVER text-slate-400 or lighter for content.\n\n"
+        "CARD STYLE: bg-white rounded-2xl shadow-lg border border-slate-100 p-6. Title dot: <span class='w-3 h-3 rounded-full bg-indigo-600 inline-block mr-2'></span>.\n"
+        "SVG RULES: Every <svg> needs width, height, viewBox. Use fill='#hex' for text. No Tailwind text-* inside SVG.\n"
+        "COLORS: indigo-500/600, purple-500, emerald-500, amber-500, rose-500. Text: text-slate-900 headings, text-slate-600 body.\n\n"
 
-        "9. CRITICAL TECHNICAL RULES:\n"
-        "   - Every <svg> MUST have explicit width, height, viewBox attributes.\n"
-        "   - Wrap each SVG in a div with defined height (h-48, h-56, h-64).\n"
-        "   - SVG <text> uses fill='#color' NOT color or text classes. Always set font-size explicitly.\n"
-        "   - Cards with positioned elements: parent must be relative, children absolute with proper z-index.\n"
-        "   - overflow-hidden on cards to prevent element spill, but NOT on body.\n"
-        "   - NO external images, NO JavaScript libraries, NO chart.js.\n"
-        "   - NO markdown code fences. Start with <!DOCTYPE html>.\n\n"
-
-        "10. MINIMUM CONTENT:\n"
-        "    Include at least 4-5 distinct visual sections: e.g. stat cards row + bar chart + comparison table + pie chart + timeline.\n\n"
-
-        "═══════ OUTPUT FORMAT ═══════\n"
-        "TITLE: [Short descriptive title for the infographic]\n"
-        "CODE: [Complete HTML starting with <!DOCTYPE html>]\n\n"
-        "Start your response with TITLE: immediately. Do NOT wrap the code in ```html blocks."
+        "OUTPUT FORMAT:\n"
+        "TITLE: [Short title about the user's topic]\n"
+        "CODE: [Complete HTML]\n\n"
+        "Start with TITLE: immediately. No markdown fences."
     )
 
     try:
@@ -246,13 +248,27 @@ def generate_graphical_content(user_requirement):
             raise AIAgentError("Missing GROQ_API_KEY in environment. Get one free at https://console.groq.com")
         response = client.chat.completions.create(
             model=model_name,
-            temperature=0.7,
+            temperature=0.5,
             messages=[
                 {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_requirement},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Create an infographic about: {user_requirement}\n\n"
+                        "IMPORTANT: All chart data, stat numbers, labels, titles, and table content "
+                        "must be specifically about the topic above. Do NOT use placeholder or unrelated data."
+                    ),
+                },
             ],
         )
-        return response.choices[0].message.content or ""
+        raw = response.choices[0].message.content or ""
+        # Post-process: sanitize the HTML portion
+        html_match = re.search(r'CODE:\s*(.+)', raw, re.DOTALL)
+        if html_match:
+            prefix = raw[:html_match.start()]
+            cleaned_html = _sanitize_blog_html(html_match.group(1).strip())
+            return prefix + "CODE: " + cleaned_html
+        return _sanitize_blog_html(raw)
     except Exception as exc:
         if _is_rate_limit_error(exc):
             print(f"AI Rate Limit: {exc}")
