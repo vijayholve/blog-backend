@@ -3,6 +3,15 @@ import os
 import re
 from openai import OpenAI
 from dotenv import load_dotenv
+from .prompts import (
+    BLOG_SYSTEM_INSTRUCTION,
+    GRAPHICAL_SYSTEM_INSTRUCTION,
+    ENHANCE_BLOG_SYSTEM_INSTRUCTION,
+    ENHANCE_SECTION_SYSTEM_INSTRUCTION,
+    ENHANCE_GRAPHICAL_SYSTEM_INSTRUCTION,
+    ENHANCE_GRAPHICAL_SECTION_SYSTEM_INSTRUCTION,
+    REFINE_COMMANDS,
+)
 
 load_dotenv()
 
@@ -101,63 +110,7 @@ def _sanitize_blog_html(html):
 
 
 def generate_blog_content(user_requirement):
-    system_instruction = (
-        "You are a premium web designer. Create a visually stunning blog post as a COMPLETE standalone HTML page "
-        "using Tailwind CSS CDN + Google Fonts. The design should look like a high-end editorial magazine.\n\n"
-
-        "CRITICAL RULES (violating ANY = failure):\n"
-        "1. Body MUST be: <body class='bg-white font-[Inter]'>. No bg-gray anything.\n"
-        "2. NO <style> blocks. Tailwind utility classes ONLY.\n"
-        "3. NO h-screen on ANY element. Sections sized by content + padding only.\n"
-        "4. NO hover:scale-105 or transform scale. Use hover:shadow-xl instead.\n"
-        "5. NO identical SVG icons. Every card icon must be a DIFFERENT recognizable shape.\n"
-        "6. NO external images or JavaScript (except Tailwind CDN).\n\n"
-
-        "HTML SKELETON (use exactly):\n"
-        "<!DOCTYPE html>\n"
-        "<html lang='en'>\n"
-        "<head>\n"
-        "  <meta charset='UTF-8'>\n"
-        "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
-        "  <script src='https://cdn.tailwindcss.com'></script>\n"
-        "  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap' rel='stylesheet'>\n"
-        "</head>\n"
-        "<body class='bg-white font-[Inter]'>\n"
-        "</body></html>\n\n"
-
-        "MANDATORY SECTIONS (include ALL in this order):\n\n"
-
-        "1. HERO: <section class='bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 py-24 md:py-32 px-6 text-center'>\n"
-        "   Title: font-['Playfair_Display'] text-5xl md:text-7xl font-black text-white. Subtitle: text-indigo-200.\n\n"
-
-        "2. INTRO: max-w-3xl mx-auto py-16 px-6. Heading text-3xl font-extrabold + 1-2 paragraphs text-slate-700 text-lg.\n\n"
-
-        "3. CARD GRID (3+ cards): <div class='grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto'>.\n"
-        "   Each card: bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-slate-100.\n"
-        "   Each card MUST have a DIFFERENT SVG icon (lightbulb, star, shield, bolt, heart, book, chart, globe — NOT circles).\n"
-        "   Use viewBox='0 0 24 24' stroke='currentColor' fill='none' stroke-width='2'.\n\n"
-
-        "4. PULL QUOTE: bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 px-8 py-6 rounded-r-2xl max-w-3xl mx-auto.\n\n"
-
-        "5. NUMBERED STEPS (3-5 items): Each with a w-10 h-10 rounded-full bg-indigo-600 text-white number badge + title + description.\n\n"
-
-        "6. STAT ROW: flex flex-wrap justify-center gap-12 py-8. Each stat: text-4xl font-black text-indigo-600 number + text-sm label.\n\n"
-
-        "7. DETAIL SECTION: Another text section or second card grid.\n\n"
-
-        "8. CTA: <section class='max-w-5xl mx-auto bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-3xl text-center py-16 px-8 mb-12'>\n"
-        "   White heading + subtitle + <button class='px-8 py-4 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:shadow-xl transition-shadow'>.\n\n"
-
-        "SPACING: Alternate section backgrounds bg-white / bg-slate-50. Each section: py-16 md:py-24 px-6.\n"
-        "TEXT: Body text-slate-700 (never lighter). Headings text-slate-900.\n"
-        "DIVIDERS: <div class='max-w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mx-auto my-4'></div> between sections.\n\n"
-
-        "OUTPUT FORMAT:\n"
-        "TITLE: [Creative title different from the hero H1]\n"
-        "EXCERPT: [2-3 sentence SEO summary]\n"
-        "CODE: [Complete HTML starting with <!DOCTYPE html>]\n\n"
-        "Start with TITLE: immediately. No markdown code fences."
-    )
+    system_instruction = BLOG_SYSTEM_INSTRUCTION
     
     try:
         if not api_key:
@@ -192,56 +145,7 @@ def generate_blog_content(user_requirement):
 
 def generate_graphical_content(user_requirement):
     """Generate an interactive graphical/infographic HTML explanation using AI."""
-    system_instruction = (
-        "You are an elite infographic designer. Create a Dribbble-quality data dashboard using HTML + Tailwind CSS CDN + inline SVG.\n\n"
-
-        "CRITICAL RULES (violating ANY = failure):\n"
-        "1. Body MUST be: <body class='bg-white font-[Inter]'>. No bg-gray.\n"
-        "2. NO <style> blocks. Tailwind utility classes ONLY.\n"
-        "3. NO h-screen. Sections sized by content only.\n"
-        "4. NO hover:scale or transform scale. Use hover:shadow-xl.\n"
-        "5. NO external images, chart.js, or JavaScript libraries.\n"
-        "6. ALL data and charts MUST be about the USER'S TOPIC. Do NOT make up unrelated topics.\n"
-        "7. Do NOT put HTML <div> elements inside <svg> tags. Legends go OUTSIDE the SVG.\n\n"
-
-        "HTML SKELETON:\n"
-        "<!DOCTYPE html>\n"
-        "<html lang='en'>\n"
-        "<head>\n"
-        "  <meta charset='UTF-8'>\n"
-        "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
-        "  <script src='https://cdn.tailwindcss.com'></script>\n"
-        "  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap' rel='stylesheet'>\n"
-        "</head>\n"
-        "<body class='bg-white font-[Inter]'>\n"
-        "</body></html>\n\n"
-
-        "LAYOUT: max-w-6xl mx-auto px-6 md:px-12 py-12. Grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6.\n\n"
-
-        "MANDATORY PANELS (include ALL):\n\n"
-
-        "1. TITLE BANNER (full-width): bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 md:p-12 col-span-full.\n"
-        "   Title: text-3xl md:text-4xl font-extrabold text-white. Subtitle: text-indigo-200.\n\n"
-
-        "2. STAT CARDS (3-4 in a row): text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent + text-sm label.\n\n"
-
-        "3. BAR CHART: <svg viewBox='0 0 400 200'> with <rect> bars (different heights/colors), axis <line>, and <text> labels.\n\n"
-
-        "4. DONUT CHART: <svg width='180' height='180' viewBox='0 0 180 180'> with stroke-dasharray circles. Legend OUTSIDE svg as HTML <span> elements.\n\n"
-
-        "5. PROGRESS BARS: CSS-based. <div class='bg-slate-100 rounded-full h-3'><div class='bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full' style='width: 85%'></div></div>.\n\n"
-
-        "6. TABLE: <thead class='bg-slate-900 text-white'> with rounded corners. Rows: even:bg-slate-50. Best values: text-emerald-600 font-bold.\n\n"
-
-        "CARD STYLE: bg-white rounded-2xl shadow-lg border border-slate-100 p-6. Title dot: <span class='w-3 h-3 rounded-full bg-indigo-600 inline-block mr-2'></span>.\n"
-        "SVG RULES: Every <svg> needs width, height, viewBox. Use fill='#hex' for text. No Tailwind text-* inside SVG.\n"
-        "COLORS: indigo-500/600, purple-500, emerald-500, amber-500, rose-500. Text: text-slate-900 headings, text-slate-600 body.\n\n"
-
-        "OUTPUT FORMAT:\n"
-        "TITLE: [Short title about the user's topic]\n"
-        "CODE: [Complete HTML]\n\n"
-        "Start with TITLE: immediately. No markdown fences."
-    )
+    system_instruction = GRAPHICAL_SYSTEM_INSTRUCTION
 
     try:
         if not api_key:
@@ -280,14 +184,7 @@ def generate_graphical_content(user_requirement):
         raise AIAgentError(str(exc))
 
 
-REFINE_COMMANDS = {
-    "simplify": "Rewrite the following text in simpler, easier-to-understand language. Keep the same meaning but use shorter sentences and common words. Return ONLY the rewritten text, no explanations.",
-    "professional": "Rewrite the following text in a polished, professional tone suitable for a business or corporate audience. Improve vocabulary, sentence structure, and flow. Return ONLY the rewritten text, no explanations.",
-    "translate_marathi": "Translate the following text accurately into Marathi (मराठी). Preserve the original meaning and tone. Return ONLY the translated text in Marathi, no explanations.",
-    "expand": "Expand the following text with more detail, examples, and depth while keeping the same topic and tone. Return ONLY the expanded text, no explanations.",
-    "shorten": "Condense the following text to be more concise while preserving the key message. Return ONLY the shortened text, no explanations.",
-    "fix_grammar": "Fix all grammar, spelling, and punctuation errors in the following text. Return ONLY the corrected text, no explanations.",
-}
+# REFINE_COMMANDS imported from prompts.py
 
 
 def enhance_blog_design(html_content, content_type="blog"):
@@ -295,28 +192,7 @@ def enhance_blog_design(html_content, content_type="blog"):
     if content_type == "graphical":
         return enhance_graphical_design(html_content)
 
-    system_instruction = (
-        "You are an expert web designer. You will receive a complete HTML page. "
-        "Your job is to ENHANCE its visual design while keeping ALL the text content exactly the same.\n\n"
-        "WHAT TO IMPROVE:\n"
-        "- Better spacing, padding, margins (generous whitespace)\n"
-        "- Stronger visual hierarchy with font sizes and weights\n"
-        "- More appealing color combinations and gradients\n"
-        "- Better card designs with shadows and rounded corners\n"
-        "- Improved section separators and visual flow\n"
-        "- Add subtle hover effects on interactive elements\n"
-        "- Better typography with proper line-height and letter-spacing\n"
-        "- Ensure all text is readable (NEVER use light colors like text-slate-400 for body text)\n"
-        "- Fix any layout issues or overlapping elements\n"
-        "- Remove any ugly decorative blobs or circles that overlap content\n\n"
-        "RULES:\n"
-        "- Keep ALL text content unchanged — only modify CSS classes, styles, and layout structure.\n"
-        "- Keep the Tailwind CDN script tag.\n"
-        "- Keep the Google Fonts link if present.\n"
-        "- Return ONLY the complete enhanced HTML starting with <!DOCTYPE html>. No explanations.\n"
-        "- Do NOT wrap in markdown code fences.\n"
-        "- Do NOT add external images or JavaScript."
-    )
+    system_instruction = ENHANCE_BLOG_SYSTEM_INSTRUCTION
 
     try:
         if not api_key:
@@ -350,45 +226,7 @@ def enhance_section_design(html_section, instructions=None, content_type="blog")
     if content_type == "graphical":
         return enhance_graphical_section_design(html_section, instructions=instructions)
 
-    system_instruction = (
-        "You are a WORLD-CLASS web designer who enhances HTML into stunning, modern designs.\n\n"
-        "You will receive an HTML FRAGMENT (a section, div, or component). "
-        "Your job is to ENHANCE its visual design while PRESERVING its existing color scheme and identity.\n\n"
-        "MANDATORY ENHANCEMENTS (apply ALL that are relevant):\n"
-        "1. LAYOUT: Restructure with CSS Grid or Flexbox for better alignment. Add proper gaps.\n"
-        "2. SPACING: Generous padding (p-8, p-12), proper margins, breathing room between elements.\n"
-        "3. COLORS: PRESERVE the existing color palette. Only enhance with subtle refinements "
-        "(e.g. add opacity variants, slight gradients using the SAME color family). "
-        "Do NOT introduce completely new background colors or replace the existing color scheme.\n"
-        "4. CARDS: Wrap items in card-like containers with rounded-2xl, shadow-lg, p-6. "
-        "Use bg-white for cards ONLY if the section doesn't already have a distinct background.\n"
-        "5. TYPOGRAPHY: Improve text sizing and weight for better hierarchy. "
-        "Use text-lg for body with leading-relaxed.\n"
-        "6. BORDERS & SHADOWS: Add shadow-xl, ring-1 ring-gray-100, rounded-2xl or rounded-3xl.\n"
-        "7. HOVER EFFECTS: Add hover:shadow-2xl, hover:scale-105, hover:-translate-y-1 with transition-all duration-300.\n"
-        "8. ICONS/BADGES: Add decorative elements like colored number badges, gradient accent bars, "
-        "small colored dots, or icon containers with rounded backgrounds.\n"
-        "9. BACKGROUNDS: Keep the existing background. Only add VERY subtle enhancements "
-        "(like a slight gradient variation of the existing bg color). NEVER add a completely different background color.\n"
-        "10. DIVIDERS: Replace plain hrs with gradient lines or decorative separators.\n\n"
-        "COMMENT REQUIREMENT — THIS IS MANDATORY:\n"
-        "Add HTML comments (<!-- ... -->) ABOVE each changed element explaining WHAT you changed and WHY.\n"
-        "Format: <!-- ENHANCED: [what was changed] → [what it is now] | WHY: [reason] -->\n"
-        "Examples:\n"
-        "  <!-- ENHANCED: plain div → card with shadow + rounded corners | WHY: creates depth and visual separation -->\n"
-        "  <!-- ENHANCED: text-xl → text-4xl font-extrabold gradient text | WHY: stronger visual hierarchy -->\n"
-        "  <!-- ENHANCED: added hover:scale-105 transition | WHY: interactive feedback for users -->\n\n"
-        "CRITICAL RULES:\n"
-        "- Keep ALL text content EXACTLY the same — only change CSS classes, styles, and wrapper structure.\n"
-        "- PRESERVE the existing color scheme. Do NOT change background colors to something completely different.\n"
-        "- The design MUST look noticeably better but still feel like the SAME section with the SAME identity.\n"
-        "- Return ONLY the enhanced HTML fragment. NOT a full page.\n"
-        "- Do NOT add <!DOCTYPE html>, <html>, <head>, <body> tags.\n"
-        "- Do NOT add <script> or <link> tags.\n"
-        "- Do NOT wrap in markdown code fences.\n"
-        "- Use Tailwind CSS classes only.\n"
-        "- The output must be the enhanced fragment with comments, nothing else."
-    )
+    system_instruction = ENHANCE_SECTION_SYSTEM_INSTRUCTION
 
     try:
         if not api_key:
@@ -423,51 +261,7 @@ def enhance_section_design(html_section, instructions=None, content_type="blog")
 
 def enhance_graphical_design(html_content):
     """Take full HTML graphical/infographic content and return an enhanced version."""
-    system_instruction = (
-        "You are a WORLD-CLASS data visualization and infographic designer.\n"
-        "You will receive a complete HTML page containing charts, graphs, tables, stat cards, "
-        "progress bars, and other data visualization elements.\n\n"
-        "Your job is to DRAMATICALLY ENHANCE its visual design to look like a premium analytics dashboard.\n\n"
-        "WHAT TO IMPROVE:\n"
-        "1. CHART COLORS: Replace plain fills with rich gradients. Use vibrant color palettes: "
-        "indigo→purple, blue→cyan, emerald→teal, amber→orange, rose→pink. "
-        "Apply gradients via SVG <linearGradient> or <radialGradient> defs.\n"
-        "2. SVG STYLING: Add drop-shadow filters, rounded stroke-linecap='round', smooth transitions. "
-        "Make bars/slices more visually distinct with better spacing.\n"
-        "3. CARD CONTAINERS: Wrap each chart/panel in premium cards with bg-white rounded-2xl shadow-xl "
-        "border border-slate-100 p-6. Add subtle hover:shadow-2xl transition-all duration-300.\n"
-        "4. STAT CARDS: Make numbers text-4xl font-black with gradient text (bg-gradient-to-r bg-clip-text text-transparent). "
-        "Add colored accent bars or dots. Use from-indigo-600 to-purple-600 style combos.\n"
-        "5. TABLE STYLING: Header bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-t-xl. "
-        "Alternating rows even:bg-slate-50. Best values: text-emerald-600 font-semibold. Hover: hover:bg-indigo-50.\n"
-        "6. PROGRESS BARS: Make taller (h-3 or h-4), use gradient fills from-indigo-500 to-purple-500, "
-        "add rounded-full, animate with transition-all. Add percentage labels.\n"
-        "7. DONUT/PIE CHARTS: Increase stroke width, add drop-shadow, use vibrant gradients per segment.\n"
-        "8. LAYOUT: Use grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 for cards. "
-        "Ensure proper max-w-6xl mx-auto px-6 py-12 for the page container.\n"
-        "9. TITLE BANNER: Make the header section a stunning gradient banner with "
-        "bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 col-span-full. "
-        "Title: text-4xl font-extrabold text-white.\n"
-        "10. BACKGROUNDS: Section bg should alternate between bg-white and bg-slate-50. "
-        "Add bg-gradient-to-br from-slate-50 to-white for subtle depth.\n"
-        "11. LEGENDS: Style legend items with small colored circles (w-3 h-3 rounded-full), "
-        "proper spacing gap-4, font-medium text-slate-600.\n"
-        "12. DIVIDERS: Add gradient dividers between sections: "
-        "h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full max-w-24 mx-auto.\n\n"
-        "SVG-SPECIFIC RULES (CRITICAL):\n"
-        "- NEVER change SVG path d='...' data, viewBox values, or data point coordinates.\n"
-        "- NEVER change text content, number values, or labels.\n"
-        "- You CAN change: fill colors, stroke colors, opacity, filters, gradients, stroke-width.\n"
-        "- You CAN add: <defs> with <linearGradient>, <filter> for shadows, <animate> for subtle effects.\n"
-        "- You CAN change: Tailwind classes on wrapper divs around SVGs.\n\n"
-        "OUTPUT RULES:\n"
-        "- Keep ALL text content, numbers, and data EXACTLY the same.\n"
-        "- Keep the Tailwind CDN script tag and Google Fonts link.\n"
-        "- Return ONLY the complete enhanced HTML starting with <!DOCTYPE html>.\n"
-        "- Do NOT wrap in markdown code fences.\n"
-        "- Do NOT add external images or JavaScript libraries.\n"
-        "- The result MUST look noticeably more polished and premium than the input."
-    )
+    system_instruction = ENHANCE_GRAPHICAL_SYSTEM_INSTRUCTION
 
     try:
         if not api_key:
@@ -497,43 +291,7 @@ def enhance_graphical_design(html_content):
 
 def enhance_graphical_section_design(html_section, instructions=None):
     """Take a graphical/infographic HTML FRAGMENT and return an enhanced version."""
-    system_instruction = (
-        "You are a WORLD-CLASS data visualization and infographic designer.\n\n"
-        "You will receive an HTML FRAGMENT from an infographic or dashboard — it could be a chart, "
-        "a stat card, a table, a progress bar section, or a visualization panel.\n\n"
-        "Your job is to DRAMATICALLY ENHANCE its visual design. Make it look like a premium "
-        "analytics dashboard — not small tweaks, but a REAL visual upgrade.\n\n"
-        "MANDATORY ENHANCEMENTS (apply ALL that are relevant):\n"
-        "1. CHART COLORS: Replace flat fills with rich SVG gradients (<linearGradient>). "
-        "Use indigo→purple, blue→cyan, emerald→teal, amber→orange, rose→pink.\n"
-        "2. SVG STYLING: Add drop-shadow filters via <filter>, use stroke-linecap='round', "
-        "increase stroke-width for visibility. Add spacing between chart elements.\n"
-        "3. CARD WRAPPERS: Wrap in bg-white rounded-2xl shadow-xl border border-slate-100/50 p-6. "
-        "Add hover:shadow-2xl transition-all duration-300.\n"
-        "4. STAT NUMBERS: text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 "
-        "bg-clip-text text-transparent. Add colored accent dots or bars.\n"
-        "5. TABLE ENHANCEMENTS: Gradient header, alternating row colors, hover:bg-indigo-50, "
-        "rounded corners on container, ring-1 ring-slate-100.\n"
-        "6. PROGRESS BARS: Taller (h-3/h-4), gradient fills, rounded-full, transition-all. "
-        "Add labels with font-semibold.\n"
-        "7. BACKGROUNDS: Add bg-gradient-to-br from-slate-50 to-white or subtle colored tints.\n"
-        "8. TYPOGRAPHY: Headings text-2xl font-bold text-slate-900. Labels text-sm text-slate-500 font-medium.\n"
-        "9. LEGENDS: Colored dots (w-3 h-3 rounded-full bg-COLOR-500) with gap-3 flex items.\n"
-        "10. SPACING: Generous p-6 to p-8, gap-4 to gap-6 between items.\n\n"
-        "SVG-SPECIFIC RULES (CRITICAL):\n"
-        "- NEVER change SVG path d='...' data, viewBox values, or coordinate numbers.\n"
-        "- NEVER change text content, labels, or numeric data.\n"
-        "- You CAN add/change: fill, stroke, opacity, <defs> with gradients/filters, stroke-width.\n"
-        "- You CAN change: Tailwind classes on wrapper elements around SVGs.\n\n"
-        "COMMENT REQUIREMENT — MANDATORY:\n"
-        "Add <!-- ENHANCED: [what] → [new] | WHY: [reason] --> comments above each change.\n\n"
-        "OUTPUT RULES:\n"
-        "- Keep ALL text, numbers, and data EXACTLY the same.\n"
-        "- Return ONLY the enhanced HTML fragment. NOT a full page.\n"
-        "- Do NOT add <!DOCTYPE html>, <html>, <head>, <body>, <script>, or <link> tags.\n"
-        "- Do NOT wrap in markdown code fences.\n"
-        "- Use Tailwind CSS classes. The design MUST look noticeably better."
-    )
+    system_instruction = ENHANCE_GRAPHICAL_SECTION_SYSTEM_INSTRUCTION
 
     try:
         if not api_key:
