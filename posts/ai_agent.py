@@ -226,6 +226,9 @@ def enhance_section_design(html_section, instructions=None, content_type="blog")
     if content_type == "graphical":
         return enhance_graphical_section_design(html_section, instructions=instructions)
 
+    # Strip any <body> wrapper from the input fragment
+    html_section = re.sub(r'</?body[^>]*>', '', html_section, flags=re.IGNORECASE).strip()
+
     system_instruction = ENHANCE_SECTION_SYSTEM_INSTRUCTION
 
     try:
@@ -248,7 +251,11 @@ def enhance_section_design(html_section, instructions=None, content_type="blog")
         result = re.sub(r'<!DOCTYPE[^>]*>', '', result, flags=re.IGNORECASE).strip()
         result = re.sub(r'</?html[^>]*>', '', result, flags=re.IGNORECASE).strip()
         result = re.sub(r'<head[\s\S]*?</head>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'</?head[^>]*>', '', result, flags=re.IGNORECASE).strip()
         result = re.sub(r'</?body[^>]*>', '', result, flags=re.IGNORECASE).strip()
+        # Remove stray <script src="...cdn..."> and <link href="..."> tags the AI may include
+        result = re.sub(r'<script\s+src=[\'"][^\'"]*cdn[^\'"]*[\'"][^>]*>\s*</script>', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'<link\s+[^>]*href=[\'"][^\'"]*(?:fonts\.googleapis|cdn\.tailwindcss)[^\'"]*[\'"][^>]*/?\s*>', '', result, flags=re.IGNORECASE).strip()
         return result
     except Exception as exc:
         if _is_rate_limit_error(exc):
