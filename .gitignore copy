@@ -1,0 +1,27 @@
+# history 
+*.log
+*.tmp
+.DS_Store
+./node_modules/   
+.history
+.vscode
+./node_modules 
+.env.* 
+__pycache__/
+*.pyc
+*/__pycache__/
+
+# history 
+*.log
+*.tmp
+.DS_Store
+./*/node_modules/   
+.history
+.vscode
+./node_modules 
+.env.*
+./*/.env.* 
+__pycache__/
+*.pyc
+*/__pycache__/
+
