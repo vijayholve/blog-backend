@@ -61,3 +61,4 @@ class PostSerializer(serializers.ModelSerializer):
             post.tags.set(tag_ids)
         
         return post
+
