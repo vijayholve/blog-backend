@@ -1,6 +1,6 @@
 # posts/serializers.py
 from rest_framework import serializers
-from .models import Post, Category, Tag, Author
+from .models import Post, Category, Tag, Author, PostMetaData, PostJsonLd
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +16,7 @@ class AuthorSummarySerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     full_name = serializers.SerializerMethodField()
     
+    
     class Meta:
         model = Author
         fields = ['id', 'username', 'full_name', 'profile_picture']
@@ -25,10 +26,26 @@ class AuthorSummarySerializer(serializers.ModelSerializer):
             return f"{obj.user.first_name} {obj.user.last_name}"
         return obj.user.username
 
+
+class PostMetaDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostMetaData
+        fields = ['data', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class PostJsonLdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostJsonLd
+        fields = ['data', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
 class PostSerializer(serializers.ModelSerializer):
     author = AuthorSummarySerializer(read_only=True)
     category = CategorySerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
+    seo_metadata = PostMetaDataSerializer(read_only=True)
+    json_ld_payload = PostJsonLdSerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     tag_ids = serializers.ListField(
         child=serializers.IntegerField(),
@@ -41,7 +58,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'slug', 'content', 'excerpt', 'is_html',
                   'graphical_content',
                   'cover_image', 'created_at', 'author', 'category', 'tags',
-                  'category_id', 'tag_ids', 'status']
+                  'seo_metadata', 'json_ld_payload', 'category_id', 'tag_ids', 'status']
         read_only_fields = ['slug', 'created_at', 'author']
     
     def create(self, validated_data):

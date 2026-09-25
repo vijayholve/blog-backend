@@ -4,7 +4,7 @@ import re
 from openai import OpenAI
 from dotenv import load_dotenv
 from .prompts import (
-    BLOG_SYSTEM_INSTRUCTION,
+    build_blog_system_instruction,
     GRAPHICAL_SYSTEM_INSTRUCTION,
     ENHANCE_BLOG_SYSTEM_INSTRUCTION,
     ENHANCE_SECTION_SYSTEM_INSTRUCTION,
@@ -110,7 +110,7 @@ def _sanitize_blog_html(html):
 
 
 def generate_blog_content(user_requirement):
-    system_instruction = BLOG_SYSTEM_INSTRUCTION
+    system_instruction = build_blog_system_instruction("editorial")
     
     try:
         if not api_key:
@@ -181,6 +181,47 @@ def generate_graphical_content(user_requirement):
                 raise AIAgentRateLimitError(f"{exc}||retry_after={retry_after}")
             raise AIAgentRateLimitError(str(exc))
         print(f"AI Error: {exc}")
+        raise AIAgentError(str(exc))
+
+
+def generate_seo_payload(user_requirement, title="", excerpt=""):
+    """Generate structured SEO metadata and JSON-LD for a blog requirement."""
+    system_instruction = (
+        "You generate JSON only. Return a single JSON object with keys: "
+        "meta_data and json_ld. meta_data should contain meta_title, meta_description, "
+        "keywords (array of strings), canonical_url, and og_title/og_description. "
+        "json_ld should be a BlogPosting object with schema.org fields. Do not wrap in markdown."
+    )
+
+    prompt = (
+        f"Blog requirement: {user_requirement}\n"
+        f"Title: {title or 'N/A'}\n"
+        f"Excerpt: {excerpt or 'N/A'}\n\n"
+                f"Excerpt: {excerpt or 'N/A'}\n\n"
+
+        "Return clean JSON only."
+    )
+
+    try:
+        if not api_key:
+            raise AIAgentError("Missing GROQ_API_KEY in environment.")
+        response = client.chat.completions.create(
+            model=model_name,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        raw = response.choices[0].message.content or "{}"
+        return raw
+    except Exception as exc:
+        if _is_rate_limit_error(exc):
+            retry_after = _extract_retry_after_seconds(str(exc))
+            if retry_after is not None:
+                raise AIAgentRateLimitError(f"{exc}||retry_after={retry_after}")
+            raise AIAgentRateLimitError(str(exc))
         raise AIAgentError(str(exc))
 
 

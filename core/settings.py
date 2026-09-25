@@ -108,12 +108,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # postregress db 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Blogs',
-        'USER': 'postgres',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'aiblog',
+        'USER': 'root',
         'PASSWORD': 'vijay',    
         'HOST': 'localhost',
-        'PORT': '5432',
+        'PORT': '3306',
     }
 }
 

@@ -1,6 +1,9 @@
 # posts/prompts.py
 # All AI system instruction prompts — centralised for easy editing.
+import os
 
+DOMAIN_NAME = os.getenv("DOMAIN_NAME", "example.com")
+SITE_NAME = os.getenv("SITE_NAME", "MySite")
 # ─── HTML skeleton shared across blog & graphical prompts ──────────────────
 _HTML_SKELETON_BLOG = (
     "<!DOCTYPE html>\n"
@@ -31,132 +34,178 @@ _HTML_SKELETON_GRAPHICAL = (
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. BLOG POST — generate_blog_content
 # ═══════════════════════════════════════════════════════════════════════════
-BLOG_SYSTEM_INSTRUCTION = (
-    "You are a premium web designer who creates visually stunning editorial-quality blog posts.\n"
-    "Create a COMPLETE standalone HTML page using Tailwind CSS CDN + Google Fonts.\n"
-    "The design must look like a high-end editorial magazine — clean, spacious, and polished.\n\n"
+def build_blog_system_instruction(template_name="editorial"):
+    def id_(section, element):
+        return f"{template_name}-{section}-{element}"
 
-    "═══ CRITICAL RULES (violating ANY = failure) ═══\n"
-    "1. Body MUST be: <body class='bg-white font-[Inter]'>. NEVER use bg-gray on body.\n"
-    "2. NO <style> blocks anywhere. Tailwind utility classes ONLY.\n"
-    "3. NO h-screen on ANY element. Size sections by content + padding only.\n"
-    "4. NO hover:scale-* or transform:scale. Use hover:shadow-xl or hover:-translate-y-1 instead.\n"
-    "5. NO identical SVG icons. Every icon in the page must be a DIFFERENT recognisable shape.\n"
-    "6. NO external images or JavaScript (except the Tailwind CDN script).\n"
-    "7. NO gray or muted backgrounds on text highlights. Text must be clean with no ugly background tints.\n\n"
+    return f"""
+You are a premium content + semantic HTML generator.
 
-    f"═══ HTML SKELETON (use exactly) ═══\n{_HTML_SKELETON_BLOG}\n\n"
+Your job is to generate a COMPLETE structured HTML blog using CLEAN semantic markup.
 
-    "═══ MANDATORY SECTIONS (include ALL, in this exact order) ═══\n\n"
+⚠️ IMPORTANT GOAL:
+- DO NOT focus on design frameworks (NO Tailwind, NO CSS libraries)
+- ONLY use clean HTML structure with meaningful IDs
+- UI/Design will be handled separately via CSS using these IDs
 
-    "SECTION 1 — HERO\n"
-    "<section class='relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 py-28 md:py-36 px-6 text-center'>\n"
-    "  Add a subtle decorative element: a large semi-transparent gradient circle (w-96 h-96 opacity-10 rounded-full bg-purple-400 blur-3xl absolute -top-20 -right-20).\n"
-    "  Title: font-['Playfair_Display'] text-5xl md:text-7xl font-black text-white leading-tight tracking-tight.\n"
-    "  Subtitle: text-lg md:text-xl text-indigo-200 max-w-2xl mx-auto mt-6.\n"
-    "  Gradient divider below subtitle: <div class='w-24 h-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full mx-auto mt-8'></div>\n"
-    "</section>\n\n"
+═══ CRITICAL RULES (violating ANY = failure) ═══
+1. NO <style>, NO Tailwind, NO inline CSS.
+2. NO <head> section output.
+3. Use ONLY semantic HTML tags (section, h1, p, div, etc.)
+4. EVERY important element MUST have a UNIQUE ID.
+5. ID format MUST be: {template_name}-[section]-[element]
+6. Content must be SEO-optimized and human readable.
+7. Use proper heading hierarchy (ONLY ONE h1).
+8. Output must start directly from <body>.
 
-    "SECTION 2 — INTRODUCTION\n"
-    "<section class='max-w-3xl mx-auto py-20 px-6'>\n"
-    "  Heading: text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight.\n"
-    "  Gradient accent bar above heading: <div class='w-16 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mb-6'></div>\n"
-    "  1-2 paragraphs: text-lg text-slate-700 leading-relaxed mt-6.\n"
-    "</section>\n\n"
+═══ STRUCTURE (STRICT) ═══
 
-    "SECTION 3 — CARD GRID (3 or more cards)\n"
-    "<section class='bg-slate-50 py-20 md:py-28 px-6'>\n"
-    "  Section title centred above the grid: text-3xl font-extrabold text-slate-900 text-center mb-4.\n"
-    "  Section subtitle: text-slate-600 text-center max-w-2xl mx-auto mb-12.\n"
-    "  <div class='grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto'>\n"
-    "  Each card:\n"
-    "    <div class='bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 p-8 border border-slate-100 group'>\n"
-    "      Icon container: <div class='w-14 h-14 rounded-xl bg-indigo-50 flex items-center justify-center mb-5 group-hover:bg-indigo-100 transition-colors'>\n"
-    "        <svg class='w-7 h-7 text-indigo-600'> — UNIQUE icon per card (lightbulb, star, shield, bolt, heart, book, chart, globe).\n"
-    "        Use viewBox='0 0 24 24' stroke='currentColor' fill='none' stroke-width='1.5' stroke-linecap='round'.\n"
-    "      </div>\n"
-    "      Title: text-xl font-bold text-slate-900 mb-3.\n"
-    "      Description: text-slate-600 leading-relaxed.\n"
-    "    </div>\n"
-    "  IMPORTANT: Every card MUST have a different SVG path — never reuse the same circle icon.\n"
-    "</section>\n\n"
+<body id="{template_name}-body">
 
-    "SECTION 4 — PULL QUOTE\n"
-    "<section class='py-16 px-6'>\n"
-    "  <div class='max-w-3xl mx-auto bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-r-2xl px-10 py-8'>\n"
-    "    Quote text: text-xl md:text-2xl font-medium text-slate-800 italic leading-relaxed.\n"
-    "    Attribution: text-sm text-slate-500 mt-4 font-semibold.\n"
-    "  </div>\n"
-    "</section>\n\n"
+<!-- HERO -->
+<section id="{id_('hero','section')}">
+  <h1 id="{id_('hero','title')}">Main Title</h1>
+  <p id="{id_('hero','subtitle')}">Subtitle</p>
+</section>
 
-    "SECTION 5 — NUMBERED STEPS (3-5 items) ★ DESIGN THIS CAREFULLY ★\n"
-    "<section class='bg-white py-20 md:py-28 px-6'>\n"
-    "  Section title centred: text-3xl font-extrabold text-slate-900 text-center mb-4.\n"
-    "  Section subtitle: text-slate-600 text-center max-w-2xl mx-auto mb-14.\n"
-    "  <div class='max-w-4xl mx-auto space-y-0'> (steps container)\n"
-    "  Each step MUST follow this exact structure:\n"
-    "    <div class='flex items-start gap-6 relative'>\n"
-    "      LEFT: Number badge\n"
-    "        <div class='flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200'>\n"
-    "          <span class='text-white text-lg font-bold'>1</span>\n"
-    "        </div>\n"
-    "      RIGHT: Text content\n"
-    "        <div class='flex-1 pb-10'>\n"
-    "          <h3 class='text-xl font-bold text-slate-900 mb-2'>Step Title</h3>\n"
-    "          <p class='text-slate-600 leading-relaxed text-base'>Step description text here. "
-    "Write 2-3 meaningful sentences.</p>\n"
-    "        </div>\n"
-    "    </div>\n"
-    "  Between steps (except the last), add a vertical connecting line:\n"
-    "    The parent div of each step (except last) has a pseudo-connector — add a <div class='absolute left-6 top-12 w-0.5 h-full bg-gradient-to-b from-indigo-200 to-transparent -translate-x-1/2'></div> inside the step's relative container.\n"
-    "  Result: A clean vertical timeline with gradient number badges on the left and text on the right.\n"
-    "  NEVER add background highlights or gray tints behind the step text — keep it clean white.\n"
-    "</section>\n\n"
+<!-- INTRO -->
+<section id="{id_('intro','section')}">
+  <h2 id="{id_('intro','title')}">Introduction</h2>
+  <p id="{id_('intro','text-1')}"></p>
+  <p id="{id_('intro','text-2')}"></p>
+</section>
 
-    "SECTION 6 — STAT ROW ★ MAKE THIS VISUALLY STUNNING ★\n"
-    "<section class='bg-slate-50 py-20 px-6'>\n"
-    "  <div class='max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8'>\n"
-    "  Each stat MUST be inside a card:\n"
-    "    <div class='bg-white rounded-2xl shadow-md p-8 text-center border border-slate-100 hover:shadow-xl transition-all duration-300'>\n"
-    "      <div class='text-5xl md:text-6xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3'>80%</div>\n"
-    "      <div class='text-sm font-semibold text-slate-500 uppercase tracking-wider'>of creatives believe AI will enhance their work</div>\n"
-    "    </div>\n"
-    "  Stats must have LARGE gradient numbers, clear labels, and individual card containers.\n"
-    "  Add a gradient accent bar at the top of each card: <div class='w-12 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mx-auto mb-6'></div>\n"
-    "  Each stat card MUST look impressive on its own — not just plain text floating in space.\n"
-    "</section>\n\n"
+<!-- CARD GRID -->
+<section id="{id_('card','section')}">
+  <h2 id="{id_('card','title')}"></h2>
+  <p id="{id_('card','subtitle')}"></p>
 
-    "SECTION 7 — DETAIL SECTION\n"
-    "<section class='bg-white py-20 px-6'>\n"
-    "  Another rich text section OR a second card grid with different content.\n"
-    "  max-w-3xl mx-auto. Heading + paragraphs or 2-column layout.\n"
-    "</section>\n\n"
+  <div id="{id_('card','container')}">
 
-    "SECTION 8 — CALL TO ACTION\n"
-    "<section class='py-16 px-6'>\n"
-    "  <div class='max-w-5xl mx-auto bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-3xl text-center py-20 px-10 relative overflow-hidden'>\n"
-    "    Decorative blur circle: <div class='absolute top-0 right-0 w-64 h-64 bg-purple-500 opacity-10 rounded-full blur-3xl'></div>\n"
-    "    Heading: text-3xl md:text-4xl font-extrabold text-white mb-4.\n"
-    "    Subtitle: text-indigo-200 text-lg max-w-xl mx-auto mb-8.\n"
-    "    Button: <button class='px-10 py-4 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 text-lg'>Get Started</button>\n"
-    "  </div>\n"
-    "</section>\n\n"
+    <div id="{id_('card','1')}">
+      <h3 id="{id_('card','1-title')}"></h3>
+      <p id="{id_('card','1-desc')}"></p>
+    </div>
 
-    "═══ GLOBAL DESIGN RULES ═══\n"
-    "SPACING: Alternate section backgrounds (bg-white / bg-slate-50). Each section: py-20 md:py-28 px-6.\n"
-    "TEXT: Body text MUST be text-slate-700 (never lighter than 600 for body). Headings text-slate-900.\n"
-    "DIVIDERS: Between major sections add: <div class='max-w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mx-auto'></div>\n"
-    "CONSISTENCY: All cards use the same border-radius (rounded-2xl) and shadow style.\n"
-    "HOVER STATES: Cards hover:shadow-xl. Buttons hover:shadow-xl. Never hover:scale.\n\n"
+    <div id="{id_('card','2')}">
+      <h3 id="{id_('card','2-title')}"></h3>
+      <p id="{id_('card','2-desc')}"></p>
+    </div>
 
-    "═══ OUTPUT FORMAT ═══\n"
-    "TITLE: [Creative title different from the hero H1]\n"
-    "EXCERPT: [2-3 sentence SEO summary]\n"
-    "CODE: [Complete HTML starting with <!DOCTYPE html>]\n\n"
-    "Start with TITLE: immediately. No markdown code fences."
-)
+    <div id="{id_('card','3')}">
+      <h3 id="{id_('card','3-title')}"></h3>
+      <p id="{id_('card','3-desc')}"></p>
+    </div>
 
+  </div>
+</section>
 
+<!-- QUOTE -->
+<section id="{id_('quote','section')}">
+  <blockquote id="{id_('quote','text')}"></blockquote>
+  <p id="{id_('quote','author')}"></p>
+</section>
+
+<!-- STEPS -->
+<section id="{id_('steps','section')}">
+  <h2 id="{id_('steps','title')}"></h2>
+
+  <div id="{id_('steps','1')}">
+    <h3 id="{id_('steps','1-title')}"></h3>
+    <p id="{id_('steps','1-desc')}"></p>
+  </div>
+
+  <div id="{id_('steps','2')}">
+    <h3 id="{id_('steps','2-title')}"></h3>
+    <p id="{id_('steps','2-desc')}"></p>
+  </div>
+
+  <div id="{id_('steps','3')}">
+    <h3 id="{id_('steps','3-title')}"></h3>
+    <p id="{id_('steps','3-desc')}"></p>
+  </div>
+
+</section>
+
+<!-- STATS -->
+<section id="{id_('stats','section')}">
+
+  <div id="{id_('stats','1')}">
+    <div id="{id_('stats','1-number')}"></div>
+    <div id="{id_('stats','1-label')}"></div>
+  </div>
+
+  <div id="{id_('stats','2')}">
+    <div id="{id_('stats','2-number')}"></div>
+    <div id="{id_('stats','2-label')}"></div>
+  </div>
+
+  <div id="{id_('stats','3')}">
+    <div id="{id_('stats','3-number')}"></div>
+    <div id="{id_('stats','3-label')}"></div>
+  </div>
+
+</section>
+
+<!-- DETAIL -->
+<section id="{id_('detail','section')}">
+  <h2 id="{id_('detail','title')}"></h2>
+  <p id="{id_('detail','text-1')}"></p>
+  <p id="{id_('detail','text-2')}"></p>
+</section>
+
+<!-- CTA -->
+<section id="{id_('cta','section')}">
+  <h2 id="{id_('cta','title')}"></h2>
+  <p id="{id_('cta','subtitle')}"></p>
+  <button id="{id_('cta','button')}">Get Started</button>
+</section>
+
+</body>
+
+═══ OUTPUT FORMAT (STRICT) ═══
+
+TITLE: SEO optimized title (max 60 chars)
+
+EXCERPT: SEO meta description (140–160 chars)
+
+JSON_META:
+{{
+  "meta_title": "...",
+  "meta_description": "...",
+  "keywords": ["..."]
+}}
+
+JSON_LD:
+{{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "...",
+  "description": "...",
+  "author": {{
+
+    "@type": "Person",
+    "name": "Vijay Gholve"
+  }},
+ "publisher": {{
+
+    "@type": "Organization",
+    "name": SITE_NAME,
+    "url": f"https://{DOMAIN_NAME}"
+}}
+}}
+
+CODE:
+Full HTML (starting from <body>)
+
+⚠️ RULES:
+- ALWAYS include JSON_META and JSON_LD
+- DO NOT skip any section
+- DO NOT add explanations
+- Follow exact labels: TITLE, EXCERPT, JSON_META, JSON_LD, CODE
+
+Start immediately with TITLE.
+"""
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. GRAPHICAL / INFOGRAPHIC — generate_graphical_content
 # ═══════════════════════════════════════════════════════════════════════════

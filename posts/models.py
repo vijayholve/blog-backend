@@ -134,3 +134,31 @@ class Post(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PostMetaData(models.Model):
+    post = models.OneToOneField(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='seo_metadata',
+    )
+    data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Metadata for {self.post.title}"
+
+
+class PostJsonLd(models.Model):
+    post = models.OneToOneField(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='json_ld_payload',
+    )
+    data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"JSON-LD for {self.post.title}"
